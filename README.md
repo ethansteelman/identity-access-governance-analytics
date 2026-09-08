@@ -45,5 +45,6 @@ While the overall team deliverable encompassed both physical and logical access 
 
 #### 1. Badge Reader Usage By Population & Density
 ![Reader Usage by Population](dashboards/screenshots/reader_usage_by_population.png)
-* **Business Objective:** Identify uneven distributions of foot traffic and evaluate the need for security, maintenance, or redundancy of the readers used by most of the population.
-* **Key Analytical Insight:** Highlighted badge readers handling
+* **Business Objective:** Identify badge readers that accessed by a disproportionate share of the employee base to evaluate operational redundancy, recommend preventative maintenance or targeted security improvements, and pinpoint physical security choke points.
+* **Key Analytical Insight:** Isolated the top 20 readers by percentage of the population using them, the highest of which was used by over 16% of the total population, uncovering critical bottlenecks and ...
+* **Technical Implementation & Core Metrics:**
