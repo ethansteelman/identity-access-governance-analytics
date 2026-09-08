@@ -1,2 +1,2 @@
 # identity-access-governance-analytics
-Unified access model and threat-monitoring dashboard designed to standardize 80% of user profiles across critical infrastructure datasets. Built with Python &amp; Power BI.
+End-to-end access governance analysis utilizing Python for data cleaning and Power BI for role-based access modeling (RBAC), priority maintenance recommendations, and executive threat detection.
