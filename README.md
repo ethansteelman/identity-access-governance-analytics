@@ -43,8 +43,27 @@ The dashboard suite was built around modular, recommendation-driven report pages
 
 While the overall team deliverable encompassed both physical and logical access layers, the dashboards below highlight my direct analytical deliverables. Throughout the project, I focused on physical security, foot-traffic distribution, and hardware maintenance prioritization.
 
-#### 1. Badge Reader Usage By Population & Density
+### 1. Badge Reader Usage By Population & Density
 ![Reader Usage by Population](dashboards/screenshots/reader_usage_by_population.png)
-* **Business Objective:** Identify badge readers that accessed by a disproportionate share of the employee base to evaluate operational redundancy, recommend preventative maintenance or targeted security improvements, and pinpoint physical security choke points.
-* **Key Analytical Insight:** Isolated the top 20 readers by percentage of the population using them, the highest of which was used by over 16% of the total population, uncovering critical bottlenecks and ...
+* **Business Objective:** Identify badge readers accessed by a disproportionate share of the employee base to evaluate operational redundancy, recommend preventative maintenance or targeted security improvements, and pinpoint physical security choke points.
+* **Key Analytical Insights:** Isolated the top 20 most commonly utilized access points across the enterprise footprint, discovering that the single highest-traffic reader processed badge events for over 16% of the entire employee base. These 20 readers represent prime single-point-of-failure risks, primary targets for physical tailgating/camouflage vulnerabilities, and candidates for throughput optimization.
+* **Technical Implementation & Core Metrics:** Engineered DAX measures calculating distinct employee counts per physical reader `DISTINCTCOUNT` divided by the total active population to calculate the usage rate of each badge reader, displaying reader traffic via `Top-N` visual filters in Power BI.
+
+### 2. Most Active Badge Readers
+![Most Active Readers](dashboards/screenshots/most_active_readers.png)
+* **Business Objective:** Analyze physical access event volumes across devices and operating hours to identify readers subject to high levels of wear-and-tear, detect potential volume-based security attacks (such as brute-force entry attempts, credential flooding, or denial-of-service disruptions), and strip away anomaly camouflage.
+* **Key Analytical Insights:** Isolated the top 10 readers by sheer volume of access events as potential targets for maintenance and security reinforcements. Additionally, analyzed aggregate access events by time of day to uncover a baseline for standard business hours.
+* **Technical Implementation & Core Metrics:** Aggregated raw access event logs using `COUNTROWS` to rank hardware utilization across a Top-10 bar chart, paired with a temporal line chart binning event timestamps by time of day (hh:mm). Configured dynamic KPI cards to display aggregate event volume and isolate the highest-throughput reader.
+
+### 3. Redundant Badge Readers
+![Most Active Readers](dashboards/screenshots/redundant_readers.png)
+* **Business Objective:** 
+* **Key Analytical Insights:**
 * **Technical Implementation & Core Metrics:**
+
+### 4. Anomalous Usage/Threat Identification
+![Most Active Readers](dashboards/screenshots/anomalous_usage.png)
+* **Business Objective:**
+* **Key Analytical Insights:**
+* **Technical Implementation & Core Metrics:**
+
