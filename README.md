@@ -46,24 +46,32 @@ While the overall team deliverable encompassed both physical and logical access 
 ### 1. Badge Reader Usage By Population & Density
 ![Reader Usage by Population](dashboards/screenshots/reader_usage_by_population.png)
 * **Business Objective:** Identify badge readers accessed by a disproportionate share of the employee base to evaluate operational redundancy, recommend preventative maintenance or targeted security improvements, and pinpoint physical security choke points.
-* **Key Analytical Insights:** Isolated the top 20 most commonly utilized access points across the enterprise footprint, discovering that the single highest-traffic reader processed badge events for over 16% of the entire employee base. These 20 readers represent prime single-point-of-failure risks, primary targets for physical tailgating/camouflage vulnerabilities, and candidates for throughput optimization.
+* **Key Analytical Insight:** Isolated the top 20 most commonly utilized access points across the enterprise footprint, discovering that the single highest-traffic reader processed badge events for over 16% of the entire employee base. These 20 readers represent prime single-point-of-failure risks, primary targets for physical tailgating/camouflage vulnerabilities, and candidates for throughput optimization.
 * **Technical Implementation & Core Metrics:** Engineered DAX measures calculating distinct employee counts per physical reader `DISTINCTCOUNT` divided by the total active population to calculate the usage rate of each badge reader, displaying reader traffic via `Top-N` visual filters in Power BI.
 
 ### 2. Most Active Badge Readers
 ![Most Active Readers](dashboards/screenshots/most_active_readers.png)
 * **Business Objective:** Analyze physical access event volumes across devices and operating hours to identify readers subject to high levels of wear-and-tear, detect potential volume-based security attacks (such as brute-force entry attempts, credential flooding, or denial-of-service disruptions), and strip away anomaly camouflage.
-* **Key Analytical Insights:** Isolated the top 10 readers by sheer volume of access events as potential targets for maintenance and security reinforcements. Additionally, analyzed aggregate access events by time of day to uncover a baseline for standard business hours.
+* **Key Analytical Insight:** Isolated the top 10 badge readers by sheer volume of access events as potential targets for maintenance and security reinforcements. Additionally, analyzed aggregate access events by time of day to uncover a baseline for standard business hours.
 * **Technical Implementation & Core Metrics:** Aggregated raw access event logs using `COUNTROWS` to rank hardware utilization across a Top-10 bar chart, paired with a temporal line chart binning event timestamps by time of day (hh:mm). Configured dynamic KPI cards to display aggregate event volume and isolate the highest-throughput reader.
 
 ### 3. Redundant Badge Readers
-![Most Active Readers](dashboards/screenshots/redundant_readers.png)
-* **Business Objective:** 
-* **Key Analytical Insights:**
-* **Technical Implementation & Core Metrics:**
+![Redundant Readers](dashboards/screenshots/redundant_readers.png)
+* **Business Objective:** Analyze the sets of users accessing each badge reader to identify pairs of readers that are redundant or serve the same purpose, potentially using up resources that could be allocated elsewhere.
+* **Key Analytical Insight:** Identified pairs of badge readers that share a large portion of unique users as devices that could be redundant or unnecessary. Redundant readers present opportunities for the reallocation of resources, security monitoring, and reducing potential targets for attacks or threats.
+* **Technical Implementation & Core Metrics:** Calculated the Jaccard Similarity score (`overlap_percentage = shared_users / total_unique_users`) of the sets of unique users for every possible pairing of the top 5% of badge readers by total unique users (`total_unique_users = master_df['Cardholder ID'].nunique()`). Presented the most redundant pairs of badge readers in a column chart, sorted by overall overlap percentage and including all badge readers in the top 5% by total unique user count.
 
 ### 4. Anomalous Usage/Threat Identification
-![Most Active Readers](dashboards/screenshots/anomalous_usage.png)
-* **Business Objective:**
-* **Key Analytical Insights:**
-* **Technical Implementation & Core Metrics:**
+![Anomalous Usage](dashboards/screenshots/anomalous_usage.png)
+* **Business Objective:** Analyze physical access data to identify and prevent anomalous usage such as unauthorized or unmonitored access, reconnaissance/scouting by dangerous individuals, or isolate attacks at times when the company's presence and security are less prevalent. 
+* **Key Analytical Insight:** Uncovered outlying badge events occurring outside standard business hours and identified suspicious multi-reader access sequences occurring across disparate locations within unusually narrow timeframes. Isolating these behaviors provides security teams with an actionable triage queue of high-risk physical access attempts and compromised or at-risk cardholders.
+* **Technical Implementation & Core Metrics:** Queried and filtered the physical access dataset to isolate anomalous access events (weekend and after-hours events) and flag rapid multi-reader swipe instances. Compiled findings into an interactive bubble chart mapping individual cardholders by weekend events (X-axis) and after-hours events (Y-axis), with bubble sizing representing total volume and color-coding highlighting multi-reader or single-reader activity.
+
+---
+
+## Code Highlights & Analytical Logic
+
+This section highlights core data transformations and mathematical models developed in Python and DAX to process physical access logs and quantify security risks.
+
+### 1. Cleaning and Wrangling the Physical Access Data (Python / Pandas)
 
