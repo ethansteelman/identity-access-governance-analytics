@@ -75,3 +75,166 @@ This section highlights core data transformations and mathematical models develo
 
 ### 1. Cleaning and Wrangling the Physical Access Data (Python / Pandas)
 
+Importing, cleaning, and wrangling the physical access data provided by OG+E. This included importing and concatenating split datasets into a master dataset, standardizing and updating data types, removing blank or unusable items/rows, and lastly exporting the cleaned data for use in Power BI.
+
+#### *Importing and Concatenating Datasets*
+
+Google Colab, and by extension Google Drive, was used to collaborate with team members and store files.
+
+```python
+import glob
+import os
+import pandas as pd
+
+# Importing all datasets using glob
+folder_path = 'data/raw/physical_access'
+physical_files = glob.glob(os.path.join(folder_path, "*.csv"))
+
+# List to hold the dataframes
+df_list = []
+
+for file in physical_files:
+  # Read the current file
+  temp_df = pd.read_csv(file)
+
+  # Store the name of the original file
+  temp_df['Source_Month'] = os.path.basename(file)
+
+  # Append to the list
+  df_list.append(temp_df)
+
+# Assemble the datasets stacked on top of each other, rather than merged
+master_df = pd.concat(df_list, ignore_index=True)
+```
+* **Core Logic/Functionality:** Leveraged `glob` and `os.path` to build an automated, path-agnostic batch ingestion loop, tracking source filenames to maintain data lineage across partitions.
+* **Analytical Impact:** Replaced manual multi-file merging with a scalable pipeline, consolidating fragmented enterprise logs into a unified dataset for comprehensive analysis.
+
+#### *Standardizing and Updating Data Types*
+
+```python
+# Removing blank/useless first-rows
+# If an event has no Cardholder ID or Device, it is not useful to us
+master_df = master_df.dropna(subset=['Cardholder ID', 'Device'])
+
+# Converting Event Time and Event UTC Time to DateTime format
+# Event Time formatted as string HH:MM:SS for time binning in Power BI
+master_df['Event Time'] = pd.to_datetime(master_df['Event Time'], format='%H:%M:%S', errors='coerce').dt.strftime('%H:%M:%S')
+master_df['Event UTC Time'] = pd.to_datetime(master_df['Event UTC Time'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+
+# Drop rows that failed DateTime/string conversion
+master_df = master_df.dropna(subset=['Event Time', 'Event UTC Time'])
+
+# Standardizing Cardholder ID and Badge to String format
+master_df['Badge'] = master_df['Badge'].astype(str).str.strip()
+master_df['Cardholder ID'] = master_df['Cardholder ID'].astype(str).str.strip()
+```
+
+* **Core Logic:** Implemented defensive parsing with `errors='coerce'` to handle malformed timestamp anomalies and stripped whitespace across composite entity keys (Badge, Cardholder ID).
+* **Analytical Impact:** Ensured data integrity and consistency prior to relational modeling in Power BI, preventing bugs, errors, and join failures in later analysis.
+
+> **NOTE: Exporting for Use in Power BI**
+>
+> Data was exported as a `.parquet` file instead of a `.csv` due to the volume of the dataset. The human-readable aspect of `.csv` files was traded for the vastly reduced storage footprints, preserved schema data types, and optimized query/query load speeds of `.parquet` files.
+
+### 2. Python Analysis (Jaccard Similarity Score & Anomalous Usage)
+
+While most analysis was done in Power BI, Python was used to detect redundant readers using the Jaccard Similarity Score and to detect anomalous usage.
+
+#### *Redundant Readers/Jaccard Similarity Score*
+
+```python
+import itertools
+
+# Set a cutoff threshold of 5% to focus on high-impact devices
+total_users = master_df['Cardholder ID'].nunique()
+threshold = total_users * 0.05
+
+# Count the unique users for each device and filter by the threshold cutoff
+device_user_counts = master_df.groupby('Device')['Cardholder ID'].nunique()
+top_devices = device_user_counts[device_user_counts >= threshold].index.tolist()
+
+# Create a dictionary mapping each device to a set of its unique users
+device_user_sets = {}
+for device in top_devices:
+  # Extract the unique Cardholder IDs for this device
+  users = set(master_df[master_df['Device'] == device]['Cardholder ID'].unique())
+  device_user_sets[device] = users
+
+redundant_devices = []
+
+# Using itertools library, pair each device with every other device exactly once
+for device_A, device_B in itertools.combinations(top_devices, 2):
+  set_A = device_user_sets[device_A]
+  set_B = device_user_sets[device_B]
+
+  # Calculate the overlap (intersection)
+  shared_users = len(set_A.intersection(set_B))
+
+  # Calculate the total unique pool (union)
+  total_unique_users = len(set_A.union(set_B))
+
+  # Calculating the Jaccard Similarity score (0.0 to 1.0)
+  if total_unique_users > 0: # Prevent division by zero
+    overlap_percentage = shared_users / total_unique_users
+  else:
+    overlap_percentage = 0
+
+  # Add high overlap_percentage devices to our set of redundant_devices
+  redundant_devices.append({
+      'Device_1': device_A,
+      'Device_2': device_B,
+      'Shared_Users': shared_users,
+      'Overlap_Percentage': overlap_percentage
+  })
+
+# Creating a Redundancy Data Frame
+redundancy_df = pd.DataFrame(redundant_devices)
+redundancy_df = redundancy_df.sort_values(by='Overlap_Percentage', ascending=False)
+```
+* **Core Logic/Functionality:** Implemented `itertools.combinations` to analyze every unique pair of devices within the threshold for evaluation, employing set operations (`intersection` and `union`) across high-volume devices' cardholder sets to calculate the Jaccard Similarity score of each pair.
+* **Analytical Impact:** Provided a metric-driven basis for identifying potentially redundant access points/readers that may be targets for resource reallocation or removal entirely.
+
+#### *Anomalous Usage*
+
+The NumPy library was imported to perform statistical calculations, such as Z-score, 95th percentile, and standard deviation.
+
+``` python
+import numpy as np
+
+# Identify off-hours and weekend access
+master_df['hour'] = master_df['event_datetime'].dt.hour
+master_df['is_weekend'] = master_df['event_datetime'].dt.dayofweek >= 5
+master_df['is_after_hours'] = (master_df['hour'] < 7) | (master_df['hour'] >= 18)
+
+# Count distinct readers per cardholder in a set timeframe
+results = []
+for cardholder, group in master_df.groupby('Cardholder ID'):
+    times = group['event_datetime'].values
+    devices = group['Device'].values
+    
+    for i in range(len(times)):
+        # Define the look-back window from the current access event
+        window_start = times[i] - np.timedelta64(WINDOW_MINUTES, 'm')
+        in_window = (times >= window_start) & (times <= times[i])
+        
+        # Count unique readers accessed during this specific window
+        distinct_readers = len(set(devices[in_window]))
+        results.append({
+            'Cardholder ID': cardholder, 
+            'distinct_readers': distinct_readers
+        })
+
+reader_window_df = pd.DataFrame(results)
+
+# Flag top 5% or Z-score > 2 as anomalous
+perc95_r = reader_window_df['distinct_readers'].quantile(0.95)
+stdev_r = reader_window_df['distinct_readers'].std()
+mean_r = reader_window_df['distinct_readers'].mean()
+
+reader_window_df['z_score'] = (reader_window_df['distinct_readers'] - mean_r) / stdev_r
+reader_window_df['is_unusual'] = (reader_window_df['z_score'] > 2) | (reader_window_df['distinct_readers'] > perc95_r)
+```
+* **Core Logic/Functionality:** Extracted the time components of events to group access windows, using a custom rolling-window loop over NumPy datetime arrays to track localized device density per employee.
+* **Analytical Impact:** Implemented statistical outlier boundaries (Z-score and 95th percentile), isolating high-frequency physical sweeps and off-hours entry risks into an actionable security review queue.
+
+### 3. DAX Measures for Power BI Analysis
