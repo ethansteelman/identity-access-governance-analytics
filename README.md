@@ -25,7 +25,9 @@
 
 ### 2. Semantic Modeling (Power BI)
 * Ingested processed datasets into **Power BI** to construct an optimized **Star Schema**.
-* Established relational integrity between fact tables (access logs) and dimension tables (users, physical locations, logical systems, and entitlement levels).
+* Established 1-to-many (`1:*`) unidirectional relationships bridging fact access logs with custom dimension tables (`DimTime`, `Cardholder ID Lookup`, and `Device Lookup`)
+
+![Relational Star Schema Model](data/star_schema_model.png)
 
 ### 3. Analysis & Metrics (DAX)
 * Engineered custom **DAX measures** to quantify profile overlap, flag inactive high-privilege credentials, and calculate least-privilege coverage percentages.
@@ -136,6 +138,8 @@ master_df['Cardholder ID'] = master_df['Cardholder ID'].astype(str).str.strip()
 >
 > Data was exported as a `.parquet` file instead of a `.csv` due to the volume of the dataset. The human-readable aspect of `.csv` files was traded for the vastly reduced storage footprints, preserved schema data types, and optimized query/query load speeds of `.parquet` files.
 
+---
+
 ### 2. Python Analysis (Jaccard Similarity Score & Anomalous Usage)
 
 While most analysis was done in Power BI, Python was used to detect redundant readers using the Jaccard Similarity Score and to detect anomalous usage.
@@ -237,4 +241,71 @@ reader_window_df['is_unusual'] = (reader_window_df['z_score'] > 2) | (reader_win
 * **Core Logic/Functionality:** Extracted the time components of events to group access windows, using a custom rolling-window loop over NumPy datetime arrays to track localized device density per employee.
 * **Analytical Impact:** Implemented statistical outlier boundaries (Z-score and 95th percentile), isolating high-frequency physical sweeps and off-hours entry risks into an actionable security review queue.
 
-### 3. DAX Measures for Power BI Analysis
+---
+
+### 3. Data Modeling & DAX Measures for Power BI Analysis
+
+Engineered a star-schema model supported by custom dimension tables and dynamic DAX measures to evaluate operational traffic and infrastructure penetration.
+
+#### *Dynamic Time Dimension & Shift Segmentation (Calculated Table)*
+Constructed a granular 1,440-minute temporal dimension table from scratch to map access timestamps against corporate operating shifts without requiring external datetime tables.
+
+```dax
+DimTime =
+GENERATE(
+    GENERATESERIES(0, 23, 1), // Generates Hours 0-23
+    VAR CurrentHour = [Value]
+    RETURN
+    SELECTCOLUMNS(
+        GENERATESERIES(0, 59, 1), // Generates Minutes 0-59
+        "Minute", [Value],
+        "Time", TIME(CurrentHour, [Value], 0),
+        "Hour", CurrentHour,
+        "AM/PM", FORMAT(TIME(CurrentHour, [Value], 0), "tt"),
+        "Shift Name", 
+            SWITCH(
+                TRUE(),
+                CurrentHour >= 22 || CurrentHour < 5, "Graveyard (10PM - 5AM)",
+                CurrentHour >= 5 && CurrentHour < 14, "Morning (5AM - 2PM)",
+                CurrentHour >= 14 && CurrentHour < 22, "Swing (2PM - 10PM)",
+                "Unknown"
+            )
+    )
+)
+```
+* **Core Logic/Functionality:** Combined nested `GENERATESERIES` within a `GENERATE` cross-join to build a minute-by-minute table, applying `SWITCH(TRUE())` conditional logic to tag events into enterprise work shifts (Morning, Swing, Graveyard).
+* **Analytical Impact:** Provided the dimensional baseline for the time-of-day traffic distribution visual (see "Most Active Readers" dashboard), grouping access tracking into actionable business windows.
+
+#### *Population Evaluation (Measures)*
+Calculated device-level population usage rates by benchmarking individual reader traffic against total business population.
+
+```dax
+Total Population = 
+CALCULATE (
+    DISTINCTCOUNT('Master_Physical'[Cardholder ID]), 
+    ALL('Master_Physical')
+)
+
+% Of Population = 
+DIVIDE(
+    DISTINCTCOUNT(Master_Physical[Cardholder ID]),
+    [Total Population],
+    0
+)
+```
+* **Core Logic/Functionality:** Utilized `CALCULATE` and `ALL` to establish a baseline of distinct cardholders, followed by safe division via `DIVIDE` to calculate penetration ratios.
+* **Analytical Impact:** Powered the "Reader Usage by Population" dashboard, uncovering the overall usage rate of each reader and identifying the single reader that processed access for over 16% of the corporate base, the highest of all readers.
+
+#### *Normalized Daily Throughput (Measure)*
+Calculated the average daily throughput of all badge readers, providing a simple, streamlined measure for an important KPI (see "Most Active Readers" dashboard).
+
+```dax
+Average Daily Events =
+DIVIDE(
+    COUNT(Master_Physical[Event]),
+    DISTINCTCOUNT(Master_Physical[Event Date]),
+    0
+)
+```
+* **Core Logic/Functionality:** Aggregated and averaged total access events across the entire date-range of the dataset to establish a baseline rate of daily reader throughput.
+* **Analytical Impact:** Provided hardware teams with reliable average load metrics, preventing skewed maintenance or security targeting caused by single-day and single-reader spikes or other anomalies.
