@@ -1,8 +1,11 @@
 # Identity & Access Governance Analytics
 
-> **End-to-end access governance and threat-detection project** utilizing Python for ETL and Power BI for role-based access modeling (RBAC), privilege-creep remediation, and maintenance prioritization.
+An end-to-end data engineering and security analytics project developed for the University of Oklahoma's MIS Case Competition, sponsored by OG&E. The project evaluates enterprise badge-swipe data to detect physical access anomalies, isolate infrastructure weaknesses, identify single points of failure, and eliminate reader redundancies.
 
-*A semester-long data analytics project analyzing physical and logical access datasets provided by OG&E to the University of Oklahoma.*
+> 🏆 **Recognition:** Awarded **3rd Place Overall** out of 70+ student teams in the competition, judged by a panel of OG&E Data & Security Professionals and OU faculty. Commended for analytical rigor, creative insight into actual business problems, and intuitive storytelling.
+
+> **Data Governance & Confidentiality Notice:**
+> The underlying raw access logs, processed Parquet files, and production `.pbix` report contain proprietary enterprise facility data. To comply with data privacy standards and corporate governance policies, all underlying data files and compiled report binaries are excluded from this public repository. All methodology, architectural schemas, DAX measures, and analytical scripts represent original collaborative work, and remain fully documented below.
 
 ---
 
@@ -25,9 +28,9 @@
 
 ### 2. Semantic Modeling (Power BI)
 * Ingested processed datasets into **Power BI** to construct an optimized **Star Schema**.
-* Established 1-to-many (`1:*`) unidirectional relationships bridging fact access logs with custom dimension tables (`DimTime`, `Cardholder ID Lookup`, and `Device Lookup`)
+* Established 1-to-many (`1:*`) unidirectional relationships bridging fact access logs with custom dimension tables (`DimTime`, `Cardholder ID Lookup`, and `Device Lookup`).
 
-![Relational Star Schema Model](data/star_schema_model.png)
+![Relational Star Schema Model](dashboards/screenshots/star_schema_model.png)
 
 ### 3. Analysis & Metrics (DAX)
 * Engineered custom **DAX measures** to quantify profile overlap, flag inactive high-privilege credentials, and calculate least-privilege coverage percentages.
@@ -77,7 +80,7 @@ This section highlights core data transformations and mathematical models develo
 
 ### 1. Cleaning and Wrangling the Physical Access Data (Python / Pandas)
 
-Importing, cleaning, and wrangling the physical access data provided by OG+E. This included importing and concatenating split datasets into a master dataset, standardizing and updating data types, removing blank or unusable items/rows, and lastly exporting the cleaned data for use in Power BI.
+Importing, cleaning, and wrangling the physical access data provided by OG&E. This included importing and concatenating split datasets into a master dataset, standardizing and updating data types, removing blank or unusable items/rows, and lastly exporting the cleaned data for use in Power BI.
 
 #### *Importing and Concatenating Datasets*
 
@@ -309,3 +312,39 @@ DIVIDE(
 ```
 * **Core Logic/Functionality:** Aggregated and averaged total access events across the entire date-range of the dataset to establish a baseline rate of daily reader throughput.
 * **Analytical Impact:** Provided hardware teams with reliable average load metrics, preventing skewed maintenance or security targeting caused by single-day and single-reader spikes or other anomalies.
+
+---
+
+## Key Findings & Strategic Recommendations
+
+### 1. Reader Usage by Population: Bottlenecks & Security Camouflage
+* **Single Points of Failure:** Readers that a large number of users access, some processing up to 16% of the workforce, represent significant vulnerabilities. Hardware failure or attacks at these isolated points risk massive bottlenecks for many employees.
+* **Security & Resilience:** Heavily trafficked checkpoints provide cover for physical camouflage attacks and tailgating. Evaluate security measures and consider improvements, such as automated turnstiles, and consider intentional redundancy by adding parallel doors at single-reader choke points.
+
+### 2. Most Active Readers: Hardware Durability & Ingress Controls
+* **Targeted Preventative Maintenance:** High-throughput readers suffer accelerated wear and tear to mechanics and sensors. Maintenance teams should prioritize these units for service to avoid or delay future failures.
+* **Rate-Limiting & Anti-Passback:** Implement rate-limiting to prevent badge flooding or denial-of-service attempts. Enforcing anti-passback controls ensures that one badge equals one entry.
+
+### 3. Redundant Readers: Infrastructure Consolidation & Cost Optimization
+* **High-Overlap Consolidation (85%+):** Readers being accessed by nearly identical sets of cardholders should be evaluated and prioritized for hardware decommissioning or consolidation, directly reducing licensing, maintenance, and wiring costs. Readers or locations benefitting from redundancy (such as those described in the end-goal of Recommendation #1) should remain redundant.
+* **Secondary Review & Resource Reallocation (60%–85%):** Device pairs with moderate overlap warrant review to determine business necessity. Resources saved from removed units can be reallocated to reinforce high-traffic choke points or expand coverage in underserved areas.
+
+### 4. Anomalous Usage: Behavioral Threat Triage & Access Policies
+* **Outlier Triage:** Audit flagged cardholders with high volumes of after-hours or weekend access events to identify compromised credentials, tailgating behavior, or unauthorized facility presence.
+* **Dynamic Time-Based Restrictions:** Consider enforcing role-based, schedule-dependent access restrictions. Tailor active hours by job role to permit off-hours entry only for authorized personnel (such as custodial or security staff).
+
+## Repository Structure
+
+```text
+├── dashboards/
+│   └── screenshots/               # Dashboard and Star Schema Model visuals
+├── .gitignore                     # Preconfigured exclusion for proprietary logs & .pbix binaries
+├── LICENSE                        # MIT License
+└── README.md                      # Project documentation and architectural breakdown
+```
+
+## Tech Stack & Tools
+* Data Engineering & ETL: Python (Pandas, NumPy, Itertools, Glob)
+* Storage Optimization: Apache Parquet
+* Data Modeling & Visualization: Power BI Desktop (Star Schema, DAX, Custom Time Dimensions)
+* Environment: Google Colab, Git/GitHub
