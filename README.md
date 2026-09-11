@@ -333,6 +333,8 @@ DIVIDE(
 * **Outlier Triage:** Audit flagged cardholders with high volumes of after-hours or weekend access events to identify compromised credentials, tailgating behavior, or unauthorized facility presence.
 * **Dynamic Time-Based Restrictions:** Consider enforcing role-based, schedule-dependent access restrictions. Tailor active hours by job role to permit off-hours entry only for authorized personnel (such as custodial or security staff).
 
+---
+
 ## Repository Structure
 
 ```text
@@ -343,8 +345,10 @@ DIVIDE(
 └── README.md                      # Project documentation and architectural breakdown
 ```
 
+---
+
 ## Tech Stack & Tools
-* Data Engineering & ETL: Python (Pandas, NumPy, Itertools, Glob)
-* Storage Optimization: Apache Parquet
-* Data Modeling & Visualization: Power BI Desktop (Star Schema, DAX, Custom Time Dimensions)
-* Environment: Google Colab, Git/GitHub
+* **Data Engineering & ETL:** Python (`pandas`, `numpy`, `itertools`, `glob`)
+* **Storage Optimization:** Apache Parquet
+* **Data Modeling & Visualization:** Power BI Desktop (Star Schema, DAX, Custom Time Dimensions)
+* **Environment:** Google Colab, Git/GitHub
